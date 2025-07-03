@@ -1,6 +1,6 @@
 #!/bin/bash
 clear
-echo -e "\E[44;1;37m               INFORMACOES DO VPS                 \E[0m"
+echo -e "\E[44;1;37m               INFORMACION DE VPS                 \E[0m"
 echo ""
 if [ -f /etc/lsb-release ]
 then
@@ -15,7 +15,7 @@ echo -e "\033[1;33mKernel Release: \033[1;37m$(uname -r)"
 if [ -f /etc/os-release ]
 then
 devlike=$(cat /etc/os-release |grep LIKE |awk -F = {'print $2'})
-echo -e "\033[1;33mDerivado do OS: \033[1;37m$devlike"
+echo -e "\033[1;33mDerivado de OS: \033[1;37m$devlike"
 echo ""
 fi
 else
