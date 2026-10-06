@@ -6,7 +6,7 @@
 # ============================================================
 
 # ─── CONFIGURACIÓN GLOBAL ───────────────────────────────────
-# URL del panel (Cámbiala aquí si en el futuro usas una carpeta /update/)
+# URL del panel (Corregida al repositorio principal)
 PANEL_URL="https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/sshplus.php"
 
 # Colores
@@ -35,7 +35,7 @@ show_banner() {
   echo "  ███████║███████║██║  ██║██║     ███████╗╚██████╔╝███████║"
   echo "  ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝     ╚══════╝ ╚═════╝ ╚══════╝"
   echo -e "${NC}"
-  echo -e "${WHITE}            PANEL WEB MANAGER - Instalador v2.1${NC}"
+  echo -e "${WHITE}            PANEL WEB MANAGER - Instalador v2.2${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
 }
 
@@ -56,7 +56,11 @@ show_menu() {
   echo ""
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
   echo -ne "${WHITE}  ¿QUÉ DESEAS HACER? : ${NC}"
-  read OPTION
+  
+  # CORRECCIÓN CRÍTICA: read -r evita problemas con barras invertidas
+  read -r OPTION
+  # Elimina caracteres de retorno de carro (\r) ocultos que causan el bucle infinito
+  OPTION="${OPTION//$'\r'/}"
 }
 
 # ─── FUNCIONES COMUNES ───────────────────────────────────────
@@ -97,7 +101,8 @@ check_sshplus() {
   if [ ! -d "/etc/SSHPlus" ]; then
     echo -e "${RED}  ✗ SSHPLUS no está instalado${NC}"
     echo -ne "${WHITE}  ¿Deseas instalarlo ahora? (s/n): ${NC}"
-    read INST
+    read -r INST
+    INST="${INST//$'\r'/}"
     if [ "$INST" = "s" ] || [ "$INST" = "S" ]; then
       install_sshplus
     else
@@ -147,11 +152,16 @@ ask_password() {
   echo ""
   while true; do
     echo -ne "${WHITE}  Contraseña para el panel web: ${NC}"
-    read -s PANEL_PASS
+    read -r -s PANEL_PASS
     echo ""
     echo -ne "${WHITE}  Confirma la contraseña: ${NC}"
-    read -s PANEL_PASS2
+    read -r -s PANEL_PASS2
     echo ""
+    
+    # Limpiar caracteres ocultos
+    PANEL_PASS="${PANEL_PASS//$'\r'/}"
+    PANEL_PASS2="${PANEL_PASS2//$'\r'/}"
+    
     if [ "$PANEL_PASS" = "$PANEL_PASS2" ] && [ -n "$PANEL_PASS" ]; then
       echo -e "${GREEN}  ✓ Contraseña configurada${NC}"
       mkdir -p /etc/sshplus-panel
@@ -168,7 +178,7 @@ ask_password() {
   done
 }
 
-# ─── NUEVA FUNCIÓN: VERIFICAR ACTUALIZACIONES ──────────────
+# ─── DETECCIÓN DE ACTUALIZACIONES ────────────────────────────
 check_panel_update() {
   LOCAL_FILE="/var/www/html/sshplus.php"
   TMP_FILE="/tmp/sshplus_panel_check.php"
@@ -198,22 +208,6 @@ check_panel_update() {
   fi
 }
 
-download_panel() {
-  echo -e "${YELLOW}  Descargando panel desde GitHub...${NC}"
-  TMP_FILE="/tmp/sshplus_panel.php"
-  if curl -fsSL "$PANEL_URL" -o "$TMP_FILE" 2>/dev/null; then
-    echo -e "${GREEN}  ✓ Panel descargado${NC}"
-  else
-    echo -e "${RED}  ✗ No se pudo descargar el panel desde GitHub${NC}"
-    return 1
-  fi
-  echo -e "${GREEN}  ✓ Usando contraseña configurada${NC}"
-  cp "$TMP_FILE" /var/www/html/sshplus.php
-  chmod 644 /var/www/html/sshplus.php
-  rm -f "$TMP_FILE"
-  echo -e "${GREEN}  ✓ Panel instalado en /var/www/html/sshplus.php${NC}"
-}
-
 # ─── OPCIÓN 1: INSTALAR SSHPLUS ─────────────────────────────
 install_sshplus() {
   show_banner
@@ -234,7 +228,8 @@ install_sshplus() {
   echo ""
   echo -e "${GREEN}  ✓ SSHPLUS instalado${NC}"
   echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── OPCIÓN 2: INSTALAR PANEL HTTP ──────────────────────────
@@ -245,12 +240,13 @@ install_panel() {
   echo ""
   check_apache
   check_php
-  check_sshplus || { read -p "  Presiona Enter para continuar..."; return; }
+  check_sshplus || { echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"; read -r DUMMY; return; }
   ask_password
   
   while true; do
     echo -ne "${WHITE}  Puerto HTTP para el panel (ej: 8080): ${NC}"
-    read HTTP_PORT
+    read -r HTTP_PORT
+    HTTP_PORT="${HTTP_PORT//$'\r'/}"
     if [[ "$HTTP_PORT" =~ ^[0-9]+$ ]] && [ "$HTTP_PORT" -ge 1 ] && [ "$HTTP_PORT" -le 65535 ]; then
       if ss -tlnp | grep -q ":${HTTP_PORT} "; then
         echo -e "${RED}  ✗ Puerto ${HTTP_PORT} en uso, elige otro${NC}"
@@ -280,7 +276,20 @@ CustomLog \${APACHE_LOG_DIR}/access.log combined
 EOF
   echo -e "${GREEN}  ✓ Puerto ${HTTP_PORT} configurado en Apache${NC}"
   set_permissions
-  download_panel || { read -p "  Presiona Enter para continuar..."; return; }
+  
+  echo -e "${YELLOW}  Descargando panel desde GitHub...${NC}"
+  TMP_FILE="/tmp/sshplus_panel.php"
+  if curl -fsSL "$PANEL_URL" -o "$TMP_FILE" 2>/dev/null; then
+    cp "$TMP_FILE" /var/www/html/sshplus.php
+    chmod 644 /var/www/html/sshplus.php
+    rm -f "$TMP_FILE"
+    echo -e "${GREEN}  ✓ Panel instalado en /var/www/html/sshplus.php${NC}"
+  else
+    echo -e "${RED}  ✗ No se pudo descargar el panel desde GitHub${NC}"
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
+    return
+  fi
   
   sed -i "s|127.0.0.1:8888/server/online|127.0.0.1:${HTTP_PORT}/server/online|g" /var/www/html/sshplus.php
   systemctl restart apache2
@@ -293,7 +302,8 @@ EOF
   echo -e "${WHITE}  URL del panel:${NC}"
   echo -e "${CYAN}  http://${SERVER_IP}:${HTTP_PORT}/sshplus.php${NC}"
   echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── OPCIÓN 3: INSTALAR SSL ──────────────────────────────────
@@ -304,13 +314,15 @@ install_ssl() {
   echo ""
   while true; do
     echo -ne "${WHITE}  Dominio (ej: panel.midominio.com): ${NC}"
-    read DOMAIN
+    read -r DOMAIN
+    DOMAIN="${DOMAIN//$'\r'/}"
     [ -n "$DOMAIN" ] && echo -e "${GREEN}  ✓ Dominio: ${DOMAIN}${NC}" && break
     echo -e "${RED}  ✗ El dominio no puede estar vacío${NC}"
   done
   while true; do
     echo -ne "${WHITE}  Puerto HTTPS a usar (ej: 8443): ${NC}"
-    read SSL_PORT
+    read -r SSL_PORT
+    SSL_PORT="${SSL_PORT//$'\r'/}"
     if [[ "$SSL_PORT" =~ ^[0-9]+$ ]] && [ "$SSL_PORT" -ge 1 ] && [ "$SSL_PORT" -le 65535 ]; then
       if ss -tlnp | grep -q ":${SSL_PORT} "; then
         echo -e "${RED}  ✗ Puerto ${SSL_PORT} en uso, elige otro${NC}"
@@ -324,7 +336,8 @@ install_ssl() {
   done
   while true; do
     echo -ne "${WHITE}  Email para Let's Encrypt: ${NC}"
-    read LE_EMAIL
+    read -r LE_EMAIL
+    LE_EMAIL="${LE_EMAIL//$'\r'/}"
     if [[ "$LE_EMAIL" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then
       echo -e "${GREEN}  ✓ Email: ${LE_EMAIL}${NC}"
       break
@@ -348,7 +361,8 @@ install_ssl() {
   if [ "$SERVER_IP" != "$DOMAIN_IP" ]; then
     echo -e "${YELLOW}  ⚠ El dominio no apunta a este servidor${NC}"
     echo -ne "${WHITE}  ¿Continuar de todas formas? (s/n): ${NC}"
-    read CONTINUE
+    read -r CONTINUE
+    CONTINUE="${CONTINUE//$'\r'/}"
     [ "$CONTINUE" != "s" ] && [ "$CONTINUE" != "S" ] && return
   fi
   echo -e "${YELLOW}  Obteniendo certificado SSL...${NC}"
@@ -365,7 +379,8 @@ install_ssl() {
   if [ $CERTBOT_STATUS -ne 0 ]; then
     echo -e "${RED}  ✗ Error al obtener certificado SSL${NC}"
     echo -e "${YELLOW}  Verifica que el dominio apunte a este servidor y el puerto 80 esté accesible${NC}"
-    read -p "  Presiona Enter para continuar..."
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
     return
   fi
   echo -e "${GREEN}  ✓ Certificado SSL obtenido${NC}"
@@ -408,7 +423,8 @@ EOF
   echo -e "${WHITE}  Renovación automática:${NC} ${GREEN}Activa (cada 90 días)${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
   echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── OPCIÓN 4: INSTALACIÓN COMPLETA ─────────────────────────
@@ -424,32 +440,32 @@ install_complete() {
   echo -e "  ${GREEN}✓${NC} SSL Let's Encrypt"
   echo ""
   echo -ne "${WHITE}  ¿Confirmas la instalación completa? (s/n): ${NC}"
-  read CONFIRM
+  read -r CONFIRM
+  CONFIRM="${CONFIRM//$'\r'/}"
   [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ] && return
   install_sshplus
   install_panel
   install_ssl
 }
 
-# ─── OPCIÓN 5: ACTUALIZAR PANEL (MEJORADA) ──────────────────
+# ─── OPCIÓN 5: ACTUALIZAR PANEL (INTELIGENTE) ───────────────
 update_panel() {
   show_banner
   echo -e "${WHITE}  [ACTUALIZAR PANEL WEB]${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
   echo ""
   
-  # 1. Verificar si hay actualización
   if ! check_panel_update; then
-    read -p "  Presiona Enter para continuar..."
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
     return
   fi
 
-  # 2. Confirmar con el usuario
   echo -ne "${WHITE}  ¿Deseas instalar la actualización? (s/n): ${NC}"
-  read CONFIRM
+  read -r CONFIRM
+  CONFIRM="${CONFIRM//$'\r'/}"
   [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ] && return
 
-  # 3. Conservar contraseña actual si existe
   if [ -f "/etc/sshplus-panel/.secret" ]; then
     echo -e "${GREEN}  ✓ Contraseña hasheada existente conservada${NC}"
   else
@@ -457,18 +473,23 @@ update_panel() {
     ask_password
   fi
 
-  # 4. Crear backup
   cp /var/www/html/sshplus.php /root/sshplus_backup_$(date +%Y%m%d_%H%M%S).php 2>/dev/null
   echo -e "${GREEN}  ✓ Backup creado en /root/${NC}"
   
-  # 5. Descargar e instalar
-  download_panel || { read -p "  Presiona Enter para continuar..."; return; }
+  echo -e "${YELLOW}  Descargando panel desde GitHub...${NC}"
+  TMP_FILE="/tmp/sshplus_panel.php"
+  if curl -fsSL "$PANEL_URL" -o "$TMP_FILE" 2>/dev/null; then
+    cp "$TMP_FILE" /var/www/html/sshplus.php
+    chmod 644 /var/www/html/sshplus.php
+    rm -f "$TMP_FILE"
+    echo -e "${GREEN}  ✓ Panel actualizado correctamente${NC}"
+  else
+    echo -e "${RED}  ✗ No se pudo descargar el panel desde GitHub${NC}"
+  fi
   
   systemctl restart apache2
-  echo ""
-  echo -e "${GREEN}  ✓ Panel actualizado correctamente${NC}"
-  echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── OPCIÓN 6: RENOVAR SSL ───────────────────────────────────
@@ -484,7 +505,8 @@ renew_ssl() {
   echo ""
   echo -e "${GREEN}  ✓ Proceso de renovación completado${NC}"
   echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── OPCIÓN 7: USAR CERTIFICADO ACME.SH ────────────────────
@@ -499,7 +521,8 @@ use_acme_cert() {
   echo ""
   while true; do
     echo -ne "${WHITE}  Dominio del certificado (ej: v2ray.cloudgt.xyz): ${NC}"
-    read ACME_DOMAIN
+    read -r ACME_DOMAIN
+    ACME_DOMAIN="${ACME_DOMAIN//$'\r'/}"
     [ -n "$ACME_DOMAIN" ] && break
     echo -e "${RED}  ✗ El dominio no puede estar vacío${NC}"
   done
@@ -509,20 +532,23 @@ use_acme_cert() {
     CERT_DIR="$HOME/.acme.sh/${ACME_DOMAIN}"
   else
     echo -e "${RED}  ✗ No se encontró certificado para ${ACME_DOMAIN}${NC}"
-    read -p "  Presiona Enter para continuar..."
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
     return
   fi
   CERT_FILE="${CERT_DIR}/fullchain.cer"
   KEY_FILE="${CERT_DIR}/${ACME_DOMAIN}.key"
   if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     echo -e "${RED}  ✗ Archivos de certificado no encontrados en ${CERT_DIR}${NC}"
-    read -p "  Presiona Enter para continuar..."
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
     return
   fi
   echo -e "${GREEN}  ✓ Certificado encontrado en: ${CERT_DIR}${NC}"
   while true; do
     echo -ne "${WHITE}  Puerto HTTPS a usar (ej: 8443): ${NC}"
-    read SSL_PORT
+    read -r SSL_PORT
+    SSL_PORT="${SSL_PORT//$'\r'/}"
     if [[ "$SSL_PORT" =~ ^[0-9]+$ ]] && [ "$SSL_PORT" -ge 1 ] && [ "$SSL_PORT" -le 65535 ]; then
       if ss -tlnp | grep -q ":${SSL_PORT} "; then
         echo -e "${RED}  ✗ Puerto ${SSL_PORT} en uso, elige otro${NC}"
@@ -579,7 +605,8 @@ EOF
   echo -e "${WHITE}  Renovación automática:${NC} ${GREEN}Activa${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
   echo ""
-  read -p "  Presiona Enter para continuar..."
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
 }
 
 # ─── LOOP PRINCIPAL ─────────────────────────────────────────
@@ -594,6 +621,6 @@ while true; do
     6) renew_ssl ;;
     7) use_acme_cert ;;
     0) echo -e "${GREEN}  ¡Hasta luego!${NC}"; echo ""; exit 0 ;;
-    *) echo -e "${RED}  ✗ Opción inválida${NC}"; sleep 1 ;;
+    *) echo -e "${RED}  ✗ Opción inválida. Por favor, ingresa un número del 0 al 7.${NC}"; sleep 1 ;;
   esac
 done
