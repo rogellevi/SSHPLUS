@@ -4,7 +4,7 @@
 
 ### Instalación con Menú
 ```
-wget -O install.sh https://raw.githubusercontent.com/rogellevi/sshplus-teu/main/install.sh && bash install.sh
+wget -qO- https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/install.sh | bash
 ```
 
 #### ROOT Y ABRIR PUERTOS
