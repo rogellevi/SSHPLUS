@@ -14,6 +14,10 @@ BLUE='\033[0;34m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
+# URLs
+PANEL_URL="https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/sshplus.php"
+PANEL_UPDATE_URL="https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/update/sshplus.php"
+
 # Verificar root
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}✗ Este script debe ejecutarse como root${NC}"
@@ -31,7 +35,7 @@ show_banner() {
   echo "  ███████║███████║██║  ██║██║     ███████╗╚██████╔╝███████║"
   echo "  ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝     ╚══════╝ ╚═════╝ ╚══════╝"
   echo -e "${NC}"
-  echo -e "${WHITE}            PANEL WEB MANAGER - Instalador v2.4${NC}"
+  echo -e "${WHITE}            PANEL WEB MANAGER - Instalador v2.5${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
 }
 
@@ -45,10 +49,11 @@ show_menu() {
   echo -e "  ${CYAN}[2]${NC} Instalar Panel Web (HTTP)"
   echo -e "  ${CYAN}[3]${NC} Instalar SSL con Let's Encrypt (HTTPS)"
   echo -e "  ${CYAN}[4]${NC} Instalación Completa (SSHPLUS + Panel + SSL)"
-  echo -e "  ${CYAN}[5]${NC} Actualizar Panel"
+  echo -e "  ${CYAN}[5]${NC} Actualizar Panel (desde carpeta update/)"
   echo -e "  ${CYAN}[6]${NC} Renovar Certificado SSL"
   echo -e "  ${CYAN}[7]${NC} Usar certificado existente de acme.sh"
-  echo -e "  ${RED}[8]${NC} Desinstalar (Panel / SSHPLUS / Todo)"
+  echo -e "  ${YELLOW}[8]${NC} Cambiar contraseña del panel"
+  echo -e "  ${RED}[9]${NC} Desinstalar (Panel / SSHPLUS / Todo)"
   echo -e "  ${RED}[0]${NC} Salir"
   echo ""
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
@@ -193,7 +198,6 @@ ask_password() {
 
 download_panel() {
   echo -e "${YELLOW}  Descargando panel desde GitHub...${NC}"
-  PANEL_URL="https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/sshplus.php"
   TMP_FILE="/tmp/sshplus_panel.php"
   if curl -fsSL "$PANEL_URL" -o "$TMP_FILE" 2>/dev/null; then
     echo -e "${GREEN}  ✓ Panel descargado${NC}"
@@ -201,11 +205,40 @@ download_panel() {
     echo -e "${RED}  ✗ No se pudo descargar el panel desde GitHub${NC}"
     return 1
   fi
-  echo -e "${GREEN}  ✓ Usando contraseña configurada${NC}"
   cp "$TMP_FILE" /var/www/html/sshplus.php
   chmod 644 /var/www/html/sshplus.php
   rm -f "$TMP_FILE"
   echo -e "${GREEN}  ✓ Panel instalado en /var/www/html/sshplus.php${NC}"
+}
+
+# ─── DETECCIÓN DE ACTUALIZACIONES (desde carpeta update/) ───
+check_panel_update() {
+  LOCAL_FILE="/var/www/html/sshplus.php"
+  TMP_FILE="/tmp/sshplus_panel_check.php"
+
+  if [ ! -f "$LOCAL_FILE" ]; then
+    echo -e "${YELLOW}  El panel no está instalado aún.${NC}"
+    return 1
+  fi
+
+  echo -e "${YELLOW}  Verificando actualizaciones en GitHub (carpeta update/)...${NC}"
+  if curl -fsSL "$PANEL_UPDATE_URL" -o "$TMP_FILE" 2>/dev/null; then
+    LOCAL_MD5=$(md5sum "$LOCAL_FILE" | awk '{print $1}')
+    REMOTE_MD5=$(md5sum "$TMP_FILE" | awk '{print $1}')
+
+    if [ "$LOCAL_MD5" != "$REMOTE_MD5" ]; then
+      echo -e "${GREEN}  ✓ ¡Nueva versión disponible en update/!${NC}"
+      rm -f "$TMP_FILE"
+      return 0
+    else
+      echo -e "${GREEN}  ✓ Ya tienes la última versión del panel.${NC}"
+      rm -f "$TMP_FILE"
+      return 1
+    fi
+  else
+    echo -e "${RED}  ✗ No se pudo conectar a GitHub para verificar.${NC}"
+    return 1
+  fi
 }
 
 # ─── OPCIÓN 1: INSTALAR SSHPLUS ─────────────────────────────
@@ -435,25 +468,56 @@ install_complete() {
   install_ssl
 }
 
-# ─── OPCIÓN 5: ACTUALIZAR PANEL ─────────────────────────────
+# ─── OPCIÓN 5: ACTUALIZAR PANEL (DESDE CARPETA update/) ─────
 update_panel() {
   show_banner
-  echo -e "${WHITE}  [ACTUALIZANDO PANEL]${NC}"
+  echo -e "${WHITE}  [ACTUALIZAR PANEL DESDE update/]${NC}"
   echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
   echo ""
+  
+  # Verificar si hay actualización en la carpeta update/
+  if ! check_panel_update; then
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
+    return
+  fi
+
+  # Confirmar con el usuario
+  echo -ne "${WHITE}  ¿Deseas instalar la actualización? (s/n): ${NC}"
+  read -r CONFIRM
+  CONFIRM="${CONFIRM//$'\r'/}"
+  [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ] && return
+
+  # Conservar contraseña actual si existe
   if [ -f "/etc/sshplus-panel/.secret" ]; then
-    echo -e "${GREEN}  ✓ Contraseña actual conservada de forma segura${NC}"
+    echo -e "${GREEN}  ✓ Contraseña hasheada existente conservada${NC}"
   else
     echo -e "${YELLOW}  ⚠ No se encontró contraseña previa. Configura una nueva.${NC}"
     ask_password
   fi
-  
+
+  # Crear backup
   cp /var/www/html/sshplus.php /root/sshplus_backup_$(date +%Y%m%d_%H%M%S).php 2>/dev/null
   echo -e "${GREEN}  ✓ Backup creado en /root/${NC}"
-  download_panel || { echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"; read -r DUMMY; return; }
+  
+  # Descargar desde la carpeta update/
+  echo -e "${YELLOW}  Descargando nueva versión desde update/...${NC}"
+  TMP_FILE="/tmp/sshplus_panel_update.php"
+  if curl -fsSL "$PANEL_UPDATE_URL" -o "$TMP_FILE" 2>/dev/null; then
+    cp "$TMP_FILE" /var/www/html/sshplus.php
+    chmod 644 /var/www/html/sshplus.php
+    rm -f "$TMP_FILE"
+    echo -e "${GREEN}  ✓ Panel actualizado correctamente${NC}"
+  else
+    echo -e "${RED}  ✗ No se pudo descargar desde update/${NC}"
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
+    return
+  fi
+  
   systemctl restart apache2
   echo ""
-  echo -e "${GREEN}  ✓ Panel actualizado correctamente${NC}"
+  echo -e "${GREEN}  ✓ Panel actualizado a la última versión${NC}"
   echo ""
   echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
   read -r DUMMY
@@ -576,7 +640,67 @@ EOF
   read -r DUMMY
 }
 
-# ─── OPCIÓN 8: SUBMENÚ DE DESINSTALACIÓN ────────────────────
+# ─── OPCIÓN 8: CAMBIAR CONTRASEÑA DEL PANEL ─────────────────
+change_password() {
+  show_banner
+  echo -e "${YELLOW}  [CAMBIAR CONTRASEÑA DEL PANEL]${NC}"
+  echo -e "${BLUE}  ─────────────────────────────────────────────────${NC}"
+  echo ""
+  
+  # Verificar que el panel esté instalado
+  if [ ! -f "/var/www/html/sshplus.php" ]; then
+    echo -e "${RED}  ✗ El panel web no está instalado${NC}"
+    echo -e "${YELLOW}  Primero debes instalar el panel con la opción [2]${NC}"
+    echo ""
+    echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+    read -r DUMMY
+    return
+  fi
+  
+  echo -e "${WHITE}  Ingresa la nueva contraseña para el panel web:${NC}"
+  echo ""
+  
+  while true; do
+    echo -ne "${WHITE}  Nueva contraseña: ${NC}"
+    read -r -s NEW_PASS
+    echo ""
+    echo -ne "${WHITE}  Confirma la nueva contraseña: ${NC}"
+    read -r -s NEW_PASS2
+    echo ""
+    
+    NEW_PASS="${NEW_PASS//$'\r'/}"
+    NEW_PASS2="${NEW_PASS2//$'\r'/}"
+    
+    if [ -z "$NEW_PASS" ]; then
+      echo -e "${RED}  ✗ La contraseña no puede estar vacía${NC}"
+      continue
+    fi
+    
+    if [ "$NEW_PASS" = "$NEW_PASS2" ]; then
+      # Hashear la nueva contraseña
+      HASH=$(php -r "echo password_hash('$NEW_PASS', PASSWORD_BCRYPT);")
+      
+      # Guardar en el archivo .secret
+      mkdir -p /etc/sshplus-panel
+      echo "$HASH" > /etc/sshplus-panel/.secret
+      chmod 644 /etc/sshplus-panel/.secret
+      chown www-data:www-data /etc/sshplus-panel/.secret
+      
+      echo ""
+      echo -e "${GREEN}  ✓ Contraseña cambiada exitosamente${NC}"
+      echo -e "${GREEN}  ✓ Ya puedes acceder al panel con la nueva contraseña${NC}"
+      break
+    else
+      echo -e "${RED}  ✗ Las contraseñas no coinciden, intenta de nuevo${NC}"
+    fi
+  done
+  
+  echo ""
+  echo -ne "${WHITE}  Presiona Enter para continuar...${NC}"
+  read -r DUMMY
+}
+
+# ─── OPCIÓN 9: SUBMENÚ DE DESINSTALACIÓN ────────────────────
 uninstall_menu() {
   while true; do
     show_uninstall_menu
@@ -737,8 +861,9 @@ while true; do
     5) update_panel ;;
     6) renew_ssl ;;
     7) use_acme_cert ;;
-    8) uninstall_menu ;;
+    8) change_password ;;
+    9) uninstall_menu ;;
     0) echo -e "${GREEN}  ¡Hasta luego!${NC}"; echo ""; exit 0 ;;
-    *) echo -e "${RED}  ✗ Opción inválida. Por favor, ingresa un número del 0 al 8.${NC}"; sleep 1 ;;
+    *) echo -e "${RED}  ✗ Opción inválida. Por favor, ingresa un número del 0 al 9.${NC}"; sleep 1 ;;
   esac
 done
