@@ -173,7 +173,7 @@ ask_password() {
 
 download_panel() {
     echo -e "${YELLOW}  Descargando panel desde GitHub...${NC}"
-    PANEL_URL="https://raw.githubusercontent.com/rogellevi/sshplus-manager/main/sshplus.php"
+    PANEL_URL="https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/sshplus.php"
     TMP_FILE="/tmp/sshplus_panel.php"
     if curl -fsSL "$PANEL_URL" -o "$TMP_FILE" 2>/dev/null; then
         echo -e "${GREEN}  ✓ Panel descargado${NC}"
