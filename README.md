@@ -4,7 +4,7 @@
 
 ### Instalación con Menú
 ```
-wget -qO- https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/install.sh | sed 's/\r$//' | bash
 ```
 
 #### ROOT Y ABRIR PUERTOS
