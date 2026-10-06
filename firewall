@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Limpar todas las reglas existentes
+iptables -F
+
+# Permitir todo el trafico de entrada y salidas
+iptables -P INPUT ACCEPT
+iptables -P OUTPUT ACCEPT
+
+# Guardar las reglas aplicas y reinciar el servicio
+iptables-save > /etc/iptables/rules.v4
+
+echo "Todas las reglas fueron abiertas Exitosamente."
+rm firewall
