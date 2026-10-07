@@ -38,7 +38,7 @@ Ejecuta el siguiente comando como usuario `root` para iniciar el instalador.
 
 ### Instalación con Menú
 ```
-wget -O install.sh https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/install.sh && bash install.sh
+wget -O manager.sh https://raw.githubusercontent.com/rogellevi/SSHPLUS/main/manager.sh && bash manager.sh
 ```
 
 #### ROOT Y ABRIR PUERTOS
