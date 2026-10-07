@@ -1352,6 +1352,130 @@ body::before{
 <div class="toast" id="toast"></div>
 <?php endif; ?>
 
+<!-- ═══ FOOTER SSHPLUS MANAGER ═══ -->
+<style>
+.sshplus-footer {
+  margin-top: 50px;
+  padding: 30px 20px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-family: var(--font-main);
+  color: var(--text-muted);
+  transition: all 0.4s ease;
+  box-shadow: var(--card-glow);
+}
+
+.sshplus-footer .footer-brand {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--text-soft));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  transition: all 0.4s;
+}
+
+[data-theme="paper"] .sshplus-footer .footer-brand {
+  font-size: 24px;
+  letter-spacing: 1px;
+}
+
+[data-theme="gaming"] .sshplus-footer .footer-brand {
+  font-size: 20px;
+  background: linear-gradient(90deg, #ff00ff, #00ffff, #39ff14);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: rgbText 3s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(255,0,255,0.5));
+}
+
+.sshplus-footer .footer-copy {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-soft);
+}
+
+[data-theme="paper"] .sshplus-footer .footer-copy {
+  font-style: italic;
+  font-size: 14px;
+}
+
+.sshplus-footer .footer-links {
+  margin: 15px 0;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.sshplus-footer .footer-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sshplus-footer .footer-link:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--glow);
+}
+
+[data-theme="gaming"] .sshplus-footer .footer-link {
+  border-color: #5500aa;
+  box-shadow: 0 0 8px rgba(255,0,255,0.2);
+}
+
+[data-theme="gaming"] .sshplus-footer .footer-link:hover {
+  border-color: #ff00ff;
+  box-shadow: 0 0 15px rgba(255,0,255,0.5);
+}
+
+.sshplus-footer .footer-version {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  opacity: 0.7;
+}
+
+[data-theme="paper"] .sshplus-footer .footer-version {
+  font-style: italic;
+}
+
+.sshplus-footer .footer-separator {
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 15px auto;
+  opacity: 0.5;
+}
+</style>
+
+<footer class="sshplus-footer">
+  <div class="footer-brand">⚡ SSHPLUS MANAGER</div>
+  <div class="footer-copy">
+    © <?php echo date('Y'); ?> <strong style="color: var(--accent);">CloudGT</strong> - Todos los derechos reservados
+  </div>
+  
+  <div class="footer-version">
+    Panel Web v2.0
+  </div>
+</footer>
+<!-- ═══ FIN FOOTER ═══ -->
+
+
 <script>
 /* ── SISTEMA DE TEMAS ── */
 const THEME_KEY = 'sshplus_theme';
@@ -1647,6 +1771,9 @@ loadUsers(); loadOnline(); loadMonitor();
 setInterval(loadOnline, 10000);
 setInterval(loadMonitor, 5000);
 <?php endif; ?>
+
+
 </script>
+
 </body>
 </html>
